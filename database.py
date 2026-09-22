@@ -2,6 +2,8 @@ import sqlite3
 import os
 import json
 import uuid
+import hashlib
+import hmac
 from datetime import datetime
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'meetups.db')
@@ -27,6 +29,7 @@ def init_db():
             default_drink TEXT,          -- 'coffee', 'tea', 'other'
             is_private INTEGER DEFAULT 0,-- 0 = public, 1 = private
             secret_code TEXT,            -- for private access
+            owner_token_hash TEXT,       -- hash of the creator's delete token
             creator_name TEXT NOT NULL,
             creator_avatar TEXT NOT NULL,
             notes_count INTEGER DEFAULT 0,
@@ -58,6 +61,9 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_participants_meetup ON participants(meetup_id);
         CREATE INDEX IF NOT EXISTS idx_notes_meetup ON notes(meetup_id);
         """)
+        columns = {row['name'] for row in conn.execute('PRAGMA table_info(meetups)')}
+        if 'owner_token_hash' not in columns:
+            conn.execute('ALTER TABLE meetups ADD COLUMN owner_token_hash TEXT')
 
 def seed_sample_data_if_empty():
     with get_db() as conn:
@@ -128,6 +134,7 @@ def get_meetups(start_date=None, end_date=None, user_secret_codes=None):
 
         # Attach participants and notes for each
         for m in meetups:
+            m.pop('owner_token_hash', None)
             cursor.execute("SELECT * FROM participants WHERE meetup_id = ? ORDER BY created_at ASC", (m['id'],))
             m['participants'] = [dict(p) for p in cursor.fetchall()]
             
@@ -144,6 +151,7 @@ def get_meetup_by_id(meetup_id):
         if not row:
             return None
         meetup = dict(row)
+        meetup.pop('owner_token_hash', None)
         cursor.execute("SELECT * FROM participants WHERE meetup_id = ? ORDER BY created_at ASC", (meetup_id,))
         meetup['participants'] = [dict(p) for p in cursor.fetchall()]
         cursor.execute("SELECT * FROM notes WHERE meetup_id = ? ORDER BY created_at ASC", (meetup_id,))
@@ -154,6 +162,8 @@ def create_meetup(data):
     meetup_id = str(uuid.uuid4())
     secret_code = str(uuid.uuid4())[:8] if data.get('is_private') else None
     now_iso = datetime.now().isoformat()
+    owner_token = data.get('owner_token')
+    owner_token_hash = hashlib.sha256(owner_token.encode('utf-8')).hexdigest() if isinstance(owner_token, str) and owner_token else None
     
     with get_db() as conn:
         cursor = conn.cursor()
@@ -161,8 +171,8 @@ def create_meetup(data):
         INSERT INTO meetups (
             id, title, date, time, end_time, activity_type, activity_detail,
             cafe_name, default_drink, is_private, secret_code, creator_name,
-            creator_avatar, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            creator_avatar, created_at, owner_token_hash
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             meetup_id,
             data.get('title', 'Зустріч з друзями').strip() or 'Зустріч з друзями',
@@ -177,7 +187,8 @@ def create_meetup(data):
             secret_code,
             data.get('creator_name', 'Організатор').strip() or 'Організатор',
             data.get('creator_avatar', '😎'),
-            now_iso
+            now_iso,
+            owner_token_hash
         ))
 
         # Add creator as the first participant
@@ -272,9 +283,20 @@ def add_note(meetup_id, data):
         conn.commit()
     return get_meetup_by_id(meetup_id)
 
-def delete_meetup(meetup_id):
+def delete_meetup(meetup_id, owner_token):
+    if not isinstance(owner_token, str) or not owner_token:
+        return 'unauthorized'
     with get_db() as conn:
         cursor = conn.cursor()
+        cursor.execute('SELECT owner_token_hash FROM meetups WHERE id = ?', (meetup_id,))
+        row = cursor.fetchone()
+        if not row:
+            return 'not_found'
+        token_hash = row['owner_token_hash']
+        provided_hash = hashlib.sha256(owner_token.encode('utf-8')).hexdigest()
+        if not token_hash or not hmac.compare_digest(token_hash, provided_hash):
+            return 'unauthorized'
         cursor.execute("DELETE FROM meetups WHERE id = ?", (meetup_id,))
         conn.commit()
-    return True
+    return 'deleted'
+
