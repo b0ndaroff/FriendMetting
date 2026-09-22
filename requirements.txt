@@ -1,0 +1,2 @@
+# Project uses Python standard library only (http.server, sqlite3, json, datetime)
+# No external pip dependencies required.
