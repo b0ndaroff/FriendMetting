@@ -64,57 +64,18 @@ def init_db():
         columns = {row['name'] for row in conn.execute('PRAGMA table_info(meetups)')}
         if 'owner_token_hash' not in columns:
             conn.execute('ALTER TABLE meetups ADD COLUMN owner_token_hash TEXT')
+        conn.executemany(
+            'DELETE FROM meetups WHERE id = ?',
+            [(meetup_id,) for meetup_id in (
+                '02f8fb58-fcf2-4e79-98f6-c46829dff8f9',
+                'ee086eb5-1b75-412c-aee5-a78364652621',
+                'e4ce7cf6-7419-4ed3-b103-de66f21dff59',
+            )]
+        )
 
 def seed_sample_data_if_empty():
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM meetups")
-        count = cursor.fetchone()[0]
-        if count == 0:
-            now = datetime.now()
-            today_str = now.strftime("%Y-%m-%d")
-            
-            # Create a sample meetup for today + 2 days
-            sample_id = str(uuid.uuid4())
-            cursor.execute("""
-            INSERT INTO meetups (
-                id, title, date, time, end_time, activity_type, cafe_name, 
-                default_drink, is_private, creator_name, creator_avatar, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                sample_id,
-                "Кава та плани на вихідні",
-                today_str,
-                "18:30",
-                "20:00",
-                "cafe",
-                "Star Cup",
-                "coffee",
-                0,
-                "Олег",
-                "☕",
-                datetime.now().isoformat()
-            ))
-
-            # Add creator as participant
-            cursor.execute("""
-            INSERT INTO participants (id, meetup_id, name, avatar, drink_choice, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (str(uuid.uuid4()), sample_id, "Олег", "☕", "coffee", "going", datetime.now().isoformat()))
-
-            # Add sample friend
-            cursor.execute("""
-            INSERT INTO participants (id, meetup_id, name, avatar, drink_choice, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (str(uuid.uuid4()), sample_id, "Катя", "✨", "tea", "going", datetime.now().isoformat()))
-
-            # Add sample note
-            cursor.execute("""
-            INSERT INTO notes (id, meetup_id, author_name, author_avatar, content, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """, (str(uuid.uuid4()), sample_id, "Катя", "✨", "Я буду на 10 хвилин раніше, займу столик біля вікна!", datetime.now().isoformat()))
-
-            conn.commit()
+    """Kept for compatibility; demo meetings are no longer generated."""
+    return None
 
 def get_meetups(start_date=None, end_date=None, user_secret_codes=None):
     with get_db() as conn:
