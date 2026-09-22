@@ -508,6 +508,10 @@ async function submitWizardMeetup() {
       return;
     }
   } catch (err) {
+    if (window.appState.backendAvailable) {
+      Toast.show('Сервер недоступний. Зустріч не створено.', 'error');
+      return;
+    }
     console.log('Running in client-side / GitHub Pages mode');
   }
 
