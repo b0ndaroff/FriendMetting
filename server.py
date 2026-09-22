@@ -29,15 +29,18 @@ def generate_ics_content(meetup):
         except Exception:
             end_dt = start_dt
 
+    def escape_ics(value):
+        return str(value or '').replace('\\', '\\\\').replace(';', '\\;').replace(',', '\\,').replace('\r\n', '\\n').replace('\n', '\\n').replace('\r', '\\n')
+
     title = meetup.get('title', 'Зустріч з друзями')
     location = meetup.get('cafe_name') or meetup.get('activity_detail') or ('Прогулянка' if meetup.get('activity_type') == 'walk' else 'Зустріч')
     
     participants_str = ", ".join([f"{p['name']} ({p.get('drink_choice') or 'учасник'})" for p in meetup.get('participants', [])])
-    description = f"Тип: {meetup.get('activity_type')}\\nОрганізатор: {meetup.get('creator_name')}\\nУчасники: {participants_str}"
+    description = f"Тип: {meetup.get('activity_type')}\nОрганізатор: {meetup.get('creator_name')}\nУчасники: {participants_str}"
     if meetup.get('notes'):
-        description += "\\n\\nПримітки:"
+        description += "\n\nПримітки:"
         for n in meetup['notes']:
-            description += f"\\n- {n['author_name']}: {n['content']}"
+            description += f"\n- {n['author_name']}: {n['content']}"
 
     now_stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
 
@@ -52,9 +55,9 @@ def generate_ics_content(meetup):
         f"DTSTAMP:{now_stamp}",
         f"DTSTART:{start_dt}",
         f"DTEND:{end_dt}",
-        f"SUMMARY:{title}",
-        f"LOCATION:{location}",
-        f"DESCRIPTION:{description}",
+        f"SUMMARY:{escape_ics(title)}",
+        f"LOCATION:{escape_ics(location)}",
+        f"DESCRIPTION:{escape_ics(description)}",
         "STATUS:CONFIRMED",
         "END:VEVENT",
         "END:VCALENDAR"
@@ -90,16 +93,16 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
         if path == '/api/meetups':
             start_date = query.get('start', [None])[0]
             end_date = query.get('end', [None])[0]
-            meetups = database.get_meetups(start_date, end_date)
+            meetups = [m for m in database.get_meetups(start_date, end_date) if not m.get('is_private')]
             self._set_json_headers(200)
             self.wfile.write(json.dumps({'meetups': meetups}, ensure_ascii=False).encode('utf-8'))
             return
 
         # API: single meetup
         if path.startswith('/api/meetups/') and not path.endswith('/calendar.ics'):
-            meetup_id = path.split('/')[-1]
+            meetup_id = urllib.parse.unquote(path.split('/')[-1])
             meetup = database.get_meetup_by_id(meetup_id)
-            if meetup:
+            if meetup and not meetup.get('is_private'):
                 self._set_json_headers(200)
                 self.wfile.write(json.dumps({'meetup': meetup}, ensure_ascii=False).encode('utf-8'))
             else:
@@ -110,9 +113,9 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
         # API: download .ics calendar file
         if path.startswith('/api/meetups/') and path.endswith('/calendar.ics'):
             parts = path.split('/')
-            meetup_id = parts[3]
+            meetup_id = urllib.parse.unquote(parts[3])
             meetup = database.get_meetup_by_id(meetup_id)
-            if not meetup:
+            if not meetup or meetup.get('is_private'):
                 self._set_json_headers(404)
                 self.wfile.write(json.dumps({'error': 'Зустріч не знайдено'}).encode('utf-8'))
                 return
@@ -145,14 +148,21 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
         body = self.rfile.read(content_length) if content_length > 0 else b'{}'
         try:
             payload = json.loads(body.decode('utf-8'))
-        except Exception:
-            payload = {}
+            if not isinstance(payload, dict):
+                raise ValueError('JSON body must be an object')
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+            self._set_json_headers(400)
+            self.wfile.write(json.dumps({'error': 'Некоректні дані запиту'}, ensure_ascii=False).encode('utf-8'))
+            return
 
         # Create meetup
         if path == '/api/meetups':
-            if not payload.get('date') or not payload.get('time'):
+            try:
+                datetime.strptime(payload.get('date', ''), '%Y-%m-%d')
+                datetime.strptime(payload.get('time', ''), '%H:%M')
+            except (TypeError, ValueError):
                 self._set_json_headers(400)
-                self.wfile.write(json.dumps({'error': 'Дата та час є обов\'язковими'}, ensure_ascii=False).encode('utf-8'))
+                self.wfile.write(json.dumps({'error': 'Вкажіть коректні дату та час'}, ensure_ascii=False).encode('utf-8'))
                 return
 
             new_meetup = database.create_meetup(payload)
@@ -164,6 +174,15 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
         if path.startswith('/api/meetups/') and path.endswith('/join'):
             parts = path.split('/')
             meetup_id = parts[3]
+            meetup_id = urllib.parse.unquote(parts[3])
+            if not database.get_meetup_by_id(meetup_id):
+                self._set_json_headers(404)
+                self.wfile.write(json.dumps({'error': 'Зустріч не знайдено'}, ensure_ascii=False).encode('utf-8'))
+                return
+            if not payload.get('name', '').strip():
+                self._set_json_headers(400)
+                self.wfile.write(json.dumps({'error': 'Вкажіть ім’я'}, ensure_ascii=False).encode('utf-8'))
+                return
             updated = database.add_participant(meetup_id, payload)
             if updated:
                 self._set_json_headers(200)
@@ -182,6 +201,11 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps({'error': 'Текст примітки не може бути порожнім'}).encode('utf-8'))
                 return
 
+            meetup_id = urllib.parse.unquote(parts[3])
+            if not database.get_meetup_by_id(meetup_id):
+                self._set_json_headers(404)
+                self.wfile.write(json.dumps({'error': 'Зустріч не знайдено'}, ensure_ascii=False).encode('utf-8'))
+                return
             updated = database.add_note(meetup_id, payload)
             if updated:
                 self._set_json_headers(200)
@@ -198,13 +222,6 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
         parsed_url = urllib.parse.urlparse(self.path)
         path = parsed_url.path
 
-        if path.startswith('/api/meetups/'):
-            meetup_id = path.split('/')[-1]
-            database.delete_meetup(meetup_id)
-            self._set_json_headers(200)
-            self.wfile.write(json.dumps({'success': True}).encode('utf-8'))
-            return
-
         self._set_json_headers(404)
         self.wfile.write(json.dumps({'error': 'Not Found'}).encode('utf-8'))
 
@@ -216,6 +233,8 @@ def run_server(port=PORT):
     try:
         httpd = ThreadingHTTPServer(server_address, AppRequestHandler)
     except OSError:
+        if port != 8000:
+            raise
         # Try port 8080 if 8000 is occupied
         port = 8080
         server_address = ('0.0.0.0', port)
