@@ -10,6 +10,35 @@ const AVATAR_OPTIONS = [
 ];
 
 const LOCAL_STORAGE_KEY = 'friends_meetups_data_store';
+const OWNER_TOKENS_KEY = 'friends_meetups_owner_tokens';
+
+function getOwnerTokens() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(OWNER_TOKENS_KEY) || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function saveOwnerTokens(tokens) {
+  try {
+    localStorage.setItem(OWNER_TOKENS_KEY, JSON.stringify(tokens));
+  } catch (error) {
+    console.warn('Unable to save meetup owner keys', error);
+  }
+}
+
+function createOwnerToken() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID() + window.crypto.randomUUID();
+  const bytes = new Uint8Array(32);
+  window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function canDeleteMeetup(meetupId) {
+  return Boolean(getOwnerTokens()[meetupId]);
+}
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -24,6 +53,7 @@ window.appState = {
     avatar: localStorage.getItem('meetup_user_avatar') || '😎'
   },
   meetups: [],
+  backendAvailable: false,
   activeMeetup: null,
   publicCalendar: null,
   wizardCalendar: null,
@@ -49,33 +79,10 @@ function getLocalMeetups() {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     } catch (e) {}
   }
-  // Default sample meetup
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  return [{
-    id: 'sample-welcome-meetup',
-    title: 'Кава та плани на вихідні',
-    date: todayStr,
-    time: '18:30',
-    end_time: '20:00',
-    activity_type: 'cafe',
-    cafe_name: 'Star Cup',
-    default_drink: 'coffee',
-    is_private: 0,
-    creator_name: 'Олег',
-    creator_avatar: '☕',
-    participants: [
-      { id: 'p1', name: 'Олег', avatar: '☕', drink_choice: 'coffee', status: 'going' },
-      { id: 'p2', name: 'Катя', avatar: '✨', drink_choice: 'tea', status: 'going' }
-    ],
-    notes: [
-      { id: 'n1', author_name: 'Катя', author_avatar: '✨', content: 'Я прийду на 10 хвилин раніше, займу столик біля вікна!', created_at: new Date().toISOString() }
-    ],
-    created_at: new Date().toISOString()
-  }];
+  return [];
 }
 
 function saveLocalMeetups(list) {
@@ -449,6 +456,7 @@ window.wizardPrevStep = function() {
 
 async function submitWizardMeetup() {
   const w = window.appState.wizard;
+  const ownerToken = createOwnerToken();
   const title = document.getElementById('wizard-title-input')?.value.trim() || 'Зустріч з друзями';
   const initialNote = document.getElementById('wizard-note-input')?.value.trim() || '';
 
@@ -488,16 +496,24 @@ async function submitWizardMeetup() {
     const res = await fetch('/api/meetups', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ ...payload, owner_token: ownerToken })
     });
 
     if (res.ok) {
       const result = await res.json();
       if (result.meetup) savedMeetup = result.meetup;
+    } else if (res.status !== 404 || res.headers.get('content-type')?.includes('application/json')) {
+      const result = await res.json().catch(() => ({}));
+      Toast.show(result.error || 'Не вдалося створити зустріч', 'error');
+      return;
     }
   } catch (err) {
     console.log('Running in client-side / GitHub Pages mode');
   }
+
+  const ownerTokens = getOwnerTokens();
+  ownerTokens[savedMeetup.id] = ownerToken;
+  saveOwnerTokens(ownerTokens);
 
   // Always persist locally
   const currentList = getLocalMeetups();
@@ -639,18 +655,18 @@ async function loadMeetups() {
     const res = await fetch('/api/meetups');
     if (res.ok) {
       const data = await res.json();
-      if (data.meetups && data.meetups.length > 0) {
-        window.appState.meetups = data.meetups;
-        saveLocalMeetups(data.meetups);
-        updateViewsAfterMeetupsLoaded();
-        return;
-      }
+      window.appState.backendAvailable = true;
+      window.appState.meetups = Array.isArray(data.meetups) ? data.meetups : [];
+      saveLocalMeetups(window.appState.meetups);
+      updateViewsAfterMeetupsLoaded();
+      return;
     }
   } catch (err) {
     // Backend API unavailable (GitHub Pages or offline)
   }
 
   // Fallback to local storage
+  window.appState.backendAvailable = false;
   window.appState.meetups = getLocalMeetups();
   updateViewsAfterMeetupsLoaded();
 }
@@ -750,6 +766,14 @@ function renderMeetupDetails(m) {
         </div>
       </div>
     </div>
+
+    ${canDeleteMeetup(m.id) ? `
+      <div class="mt-3 flex justify-end">
+        <button onclick="deleteMeetup('${m.id}')" class="px-3 py-2 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold transition">
+          🗑 Видалити зустріч
+        </button>
+      </div>
+    ` : ''}
 
     <!-- Calendar Export Buttons (Requirement 7) -->
     <div class="mt-4 p-4 rounded-2xl bg-zinc-50 border border-zinc-200/80 space-y-2.5">
@@ -858,6 +882,45 @@ function renderMeetupDetails(m) {
     </div>
   `;
 }
+
+window.deleteMeetup = async function(meetupId) {
+  const meetup = window.appState.meetups.find(item => item.id === meetupId);
+  const ownerToken = getOwnerTokens()[meetupId];
+  if (!meetup || !ownerToken) {
+    Toast.show('Видалити зустріч може лише автор із браузера, де її створили', 'warning');
+    return;
+  }
+
+  if (!window.confirm(`Видалити зустріч «${meetup.title}»? Учасники та примітки також буде видалено.`)) return;
+
+  if (window.appState.backendAvailable) {
+    try {
+      const res = await fetch(`/api/meetups/${encodeURIComponent(meetupId)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner_token: ownerToken })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        Toast.show(data.error || 'Не вдалося видалити зустріч', 'error');
+        return;
+      }
+    } catch (error) {
+      Toast.show('Сервер недоступний. Зустріч не видалено.', 'error');
+      return;
+    }
+  }
+
+  window.appState.meetups = window.appState.meetups.filter(item => item.id !== meetupId);
+  saveLocalMeetups(window.appState.meetups);
+  const ownerTokens = getOwnerTokens();
+  delete ownerTokens[meetupId];
+  saveOwnerTokens(ownerTokens);
+  window.appState.activeMeetup = null;
+  closeModal('meetup-details-modal');
+  updateViewsAfterMeetupsLoaded();
+  Toast.show('Зустріч видалено', 'success');
+};
 
 // RSVP Handlers
 window.showJoinForm = function(meetupId) {
