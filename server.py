@@ -1,4 +1,5 @@
 import os
+import sqlite3
 import json
 import urllib.parse
 import mimetypes
@@ -256,6 +257,14 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
 
 def run_server(port=PORT):
     database.init_db()
+    # One-time cleanup of confirmed invalid sample meetups.
+    with sqlite3.connect(database.DB_PATH) as conn:
+        conn.execute('PRAGMA foreign_keys = ON')
+        conn.executemany('DELETE FROM meetups WHERE id = ?', [
+            ('02f8fb58-fcf2-4e79-98f6-c46829dff8f9',),
+            ('ee086eb5-1b75-412c-aee5-a78364652621',),
+            ('e4ce7cf6-7419-4ed3-b103-de66f21dff59',),
+        ])
     
     server_address = ('0.0.0.0', port)
     try:
