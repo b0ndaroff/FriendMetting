@@ -11,6 +11,12 @@ const AVATAR_OPTIONS = [
 
 const LOCAL_STORAGE_KEY = 'friends_meetups_data_store';
 const OWNER_TOKENS_KEY = 'friends_meetups_owner_tokens';
+const INVALID_LEGACY_MEETUP_IDS = new Set([
+  '02f8fb58-fcf2-4e79-98f6-c46829dff8f9',
+  'ee086eb5-1b75-412c-aee5-a78364652621',
+  'e2105de3-9cb9-4582-9990-9a256131f97f',
+  'e4ce7cf6-7419-4ed3-b103-de66f21dff59'
+]);
 
 function getOwnerTokens() {
   try {
@@ -79,7 +85,7 @@ function getLocalMeetups() {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) return parsed.filter(meetup => !INVALID_LEGACY_MEETUP_IDS.has(meetup?.id));
     } catch (e) {}
   }
   return [];
