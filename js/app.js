@@ -500,6 +500,7 @@ async function submitWizardMeetup() {
     });
 
     if (res.ok) {
+      window.appState.backendAvailable = true;
       const result = await res.json();
       if (result.meetup) savedMeetup = result.meetup;
     } else if (res.status !== 404 || res.headers.get('content-type')?.includes('application/json')) {
