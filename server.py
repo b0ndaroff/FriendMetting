@@ -157,6 +157,11 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
 
         # Create meetup
         if path == '/api/meetups':
+            owner_token = payload.get('owner_token')
+            if not isinstance(owner_token, str) or len(owner_token) < 32:
+                self._set_json_headers(400)
+                self.wfile.write(json.dumps({'error': 'Не вдалося створити ключ власника зустрічі'}, ensure_ascii=False).encode('utf-8'))
+                return
             try:
                 datetime.strptime(payload.get('date', ''), '%Y-%m-%d')
                 datetime.strptime(payload.get('time', ''), '%H:%M')
@@ -222,12 +227,35 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
         parsed_url = urllib.parse.urlparse(self.path)
         path = parsed_url.path
 
+        if path.startswith('/api/meetups/'):
+            meetup_id = urllib.parse.unquote(path.split('/')[-1])
+            content_length = int(self.headers.get('Content-Length', 0))
+            try:
+                payload = json.loads(self.rfile.read(content_length).decode('utf-8')) if content_length else {}
+                if not isinstance(payload, dict):
+                    raise ValueError('JSON body must be an object')
+            except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+                self._set_json_headers(400)
+                self.wfile.write(json.dumps({'error': 'Некоректні дані запиту'}, ensure_ascii=False).encode('utf-8'))
+                return
+
+            result = database.delete_meetup(meetup_id, payload.get('owner_token'))
+            if result == 'deleted':
+                self._set_json_headers(200)
+                self.wfile.write(json.dumps({'success': True}).encode('utf-8'))
+            elif result == 'not_found':
+                self._set_json_headers(404)
+                self.wfile.write(json.dumps({'error': 'Зустріч не знайдено'}, ensure_ascii=False).encode('utf-8'))
+            else:
+                self._set_json_headers(403)
+                self.wfile.write(json.dumps({'error': 'Видалити зустріч може лише її автор із цього браузера'}, ensure_ascii=False).encode('utf-8'))
+            return
+
         self._set_json_headers(404)
         self.wfile.write(json.dumps({'error': 'Not Found'}).encode('utf-8'))
 
 def run_server(port=PORT):
     database.init_db()
-    database.seed_sample_data_if_empty()
     
     server_address = ('0.0.0.0', port)
     try:
@@ -248,3 +276,4 @@ def run_server(port=PORT):
 
 if __name__ == '__main__':
     run_server()
+
