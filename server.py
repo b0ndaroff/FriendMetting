@@ -7,7 +7,7 @@ from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 import database
 
 PORT = int(os.environ.get('PORT', 8000))
-STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def generate_ics_content(meetup):
     # Format dates for iCalendar format: YYYYMMDDTHHMMSS
@@ -125,6 +125,11 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(ics_content.encode('utf-8'))
             return
+
+        # Normalization: if client requests /static/*, strip /static
+        if path.startswith('/static/'):
+            self.path = self.path[7:]
+            path = path[7:]
 
         # Serve SPA: if route doesn't have an extension, serve index.html
         if path == '/' or (not os.path.splitext(path)[1] and not path.startswith('/api')):

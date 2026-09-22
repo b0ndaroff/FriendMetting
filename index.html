@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Зустрічі з друзями — Apple Style</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Custom Apple-Style Light Theme & Animations -->
+  <link rel="stylesheet" href="css/styles.css">
+  
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☕</text></svg>">
+</head>
+<body class="bg-[#f5f5f7] text-[#1d1d1f] antialiased selection:bg-blue-500 selection:text-white">
+
+  <!-- Confetti Canvas Layer -->
+  <canvas id="confetti-canvas"></canvas>
+
+  <!-- Apple Frosted Header -->
+  <header class="sticky top-0 z-40 apple-header px-4 sm:px-8 py-3.5">
+    <div class="max-w-5xl mx-auto flex items-center justify-between">
+      
+      <!-- Brand & Home Button -->
+      <div class="flex items-center gap-3">
+        <!-- Back Button (Shown when not on landing) -->
+        <button id="nav-back-btn" onclick="showView('landing')" class="hidden px-3 py-1.5 rounded-full bg-black/5 hover:bg-black/10 text-zinc-700 text-xs font-semibold flex items-center gap-1.5 transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+          Головна
+        </button>
+
+        <div class="flex items-center gap-2.5 cursor-pointer" onclick="showView('landing')">
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-400 flex items-center justify-center text-white text-base shadow-sm">
+            ☕
+          </div>
+          <div>
+            <h1 class="text-sm font-bold tracking-tight text-zinc-900 leading-tight">Зустрічі</h1>
+            <p class="text-[10px] text-zinc-600 font-medium">Для друзів & кави</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Controls: Profile & Notifications -->
+      <div class="flex items-center gap-2.5">
+        
+        <!-- Push Notifications Bell -->
+        <button id="notif-settings-btn" class="w-8 h-8 rounded-full bg-black/5 hover:bg-black/10 text-zinc-700 flex items-center justify-center transition relative" title="Налаштування сповіщень">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <span class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+        </button>
+
+        <!-- Current User Profile Pill -->
+        <div id="user-profile-btn" class="flex items-center gap-2 px-2.5 py-1 rounded-full bg-black/5 hover:bg-black/10 cursor-pointer transition" title="Змінити ім'я та аватар">
+          <div id="user-avatar-display" class="w-5 h-5 rounded-full bg-white flex items-center justify-center text-xs overflow-hidden shadow-xs">
+            😎
+          </div>
+          <span id="user-name-display" class="text-xs font-semibold text-zinc-800 max-w-[90px] truncate">
+            Друг
+          </span>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-5xl mx-auto px-4 sm:px-8 py-8 sm:py-12">
+    
+    <!-- ==================== VIEW 1: LANDING SCREEN ==================== -->
+    <section id="view-landing" class="space-y-12 animate-slide-in">
+      
+      <!-- Apple Hero -->
+      <div class="text-center max-w-2xl mx-auto pt-4 sm:pt-8 space-y-4">
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-xs font-semibold">
+          <span>✨</span> Легке планування зустрічей
+        </div>
+        <h2 class="text-4xl sm:text-5xl font-extrabold text-zinc-900 tracking-tight leading-[1.1]">
+          Коли ми усі можемо зустрітись?
+        </h2>
+        <p class="text-base sm:text-lg text-zinc-700 leading-relaxed max-w-lg mx-auto">
+          Оберіть зручний для вас варіант, щоб запланувати нову подію або приєднатись до друзів.
+        </p>
+      </div>
+
+      <!-- 2 Main Apple-Style Choice Buttons -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+        
+        <!-- Button 1: Plan New Meetup -->
+        <div onclick="startWizardFlow()" 
+             class="apple-card-interactive p-8 flex flex-col justify-between group">
+          <div class="space-y-4">
+            <div class="w-14 h-14 rounded-2xl bg-blue-500 text-white flex items-center justify-center text-2xl shadow-md group-hover:scale-110 transition duration-300">
+              🗓️
+            </div>
+            <div>
+              <h3 class="text-xl sm:text-2xl font-bold text-zinc-900 group-hover:text-blue-600 transition">
+                Запланувати нову зустріч
+              </h3>
+              <p class="text-sm text-zinc-700 mt-2 leading-relaxed">
+                Покроковий майстер: оберіть дату в календарі двох місяців, точний час, формат (прогулянка чи кафе), заклад та напій.
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-8 pt-4 border-t border-zinc-100 flex items-center justify-between text-blue-600 font-semibold text-sm">
+            <span>Почати планування</span>
+            <span class="group-hover:translate-x-1.5 transition text-lg">→</span>
+          </div>
+        </div>
+
+        <!-- Button 2: Join Existing Meetup (Public Calendar) -->
+        <div onclick="openCalendarView()" 
+             class="apple-card-interactive p-8 flex flex-col justify-between group">
+          <div class="space-y-4">
+            <div class="w-14 h-14 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-2xl shadow-md group-hover:scale-110 transition duration-300">
+              👥
+            </div>
+            <div>
+              <h3 class="text-xl sm:text-2xl font-bold text-zinc-900 group-hover:text-amber-600 transition">
+                Приєднатись до запланованої
+              </h3>
+              <p class="text-sm text-zinc-700 mt-2 leading-relaxed">
+                Відкрийте публічний календар компанії: переглядайте дні з подіями, хто вже йде, що п'є, та додавайте у свій календар.
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-8 pt-4 border-t border-zinc-100 flex items-center justify-between text-amber-600 font-semibold text-sm">
+            <span>Відкрити календар</span>
+            <span class="group-hover:translate-x-1.5 transition text-lg">→</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Quick Upcoming Sneak Peek if meetups exist -->
+      <div id="landing-recent-preview" class="max-w-3xl mx-auto pt-6">
+        <!-- Rendered in app.js -->
+      </div>
+
+    </section>
+
+    <!-- ==================== VIEW 2: STEP-BY-STEP WIZARD ==================== -->
+    <section id="view-wizard" class="hidden space-y-8 animate-slide-in">
+      
+      <!-- Wizard Progress Header -->
+      <div class="bg-white p-5 rounded-3xl border border-black/5 shadow-sm max-w-3xl mx-auto">
+        <div class="flex items-center justify-between text-xs font-semibold text-zinc-700 mb-3">
+          <span id="wizard-step-label">Крок 1 з 5: Оберіть дату та час</span>
+          <span id="wizard-progress-percent" class="text-blue-600 font-bold">20%</span>
+        </div>
+        <!-- Progress track -->
+        <div class="w-full h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+          <div id="wizard-progress-bar" class="h-full bg-blue-500 rounded-full transition-all duration-300" style="width: 20%"></div>
+        </div>
+      </div>
+
+      <!-- Wizard Form Container -->
+      <div class="max-w-3xl mx-auto">
+
+        <!-- STEP 1: WHEN? (2-Month Calendar + Time Picker) -->
+        <div id="wizard-step-1" class="wizard-step-panel space-y-6">
+          <div class="text-center space-y-2">
+            <h3 class="text-2xl sm:text-3xl font-extrabold text-zinc-900 tracking-tight">
+              Коли ви хочете зустрітись?
+            </h3>
+            <p class="text-sm text-zinc-700">Оберіть дату в календарі двох найближчих місяців та вкажіть час.</p>
+          </div>
+
+          <!-- Step 1 Calendar Mount -->
+          <div id="wizard-calendar-mount"></div>
+
+          <!-- Time Picker Card -->
+          <div class="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-4">
+            <label class="block text-sm font-bold text-zinc-800">
+              Оберіть час початку:
+            </label>
+            
+            <div class="flex flex-wrap items-center gap-3">
+              <input type="time" id="wizard-time-input" value="18:30" 
+                     class="bg-zinc-50 border border-zinc-200 rounded-2xl px-4 py-2.5 text-base font-bold text-zinc-900 focus:outline-none focus:border-blue-500 transition">
+              
+              <!-- Quick Chips -->
+              <div class="flex flex-wrap gap-2">
+                <button type="button" onclick="setWizardTime('12:00')" class="time-preset-chip px-3 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-xs font-semibold text-zinc-700 transition">12:00 (Обід)</button>
+                <button type="button" onclick="setWizardTime('16:00')" class="time-preset-chip px-3 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-xs font-semibold text-zinc-700 transition">16:00 (Кава)</button>
+                <button type="button" onclick="setWizardTime('18:30')" class="time-preset-chip px-3 py-2 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 text-xs font-semibold transition">18:30 (Вечір)</button>
+                <button type="button" onclick="setWizardTime('20:00')" class="time-preset-chip px-3 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-xs font-semibold text-zinc-700 transition">20:00</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 2: WHAT? (Прогулянка, Кафе, Щось інше) -->
+        <div id="wizard-step-2" class="wizard-step-panel hidden space-y-6">
+          <div class="text-center space-y-2">
+            <h3 class="text-2xl sm:text-3xl font-extrabold text-zinc-900 tracking-tight">
+              Який формат зустрічі?
+            </h3>
+            <p class="text-sm text-zinc-700">Оберіть одне з трьох, як ви хочете провести час:</p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            
+            <!-- Walk -->
+            <div onclick="selectWizardActivity('walk')" 
+                 id="activity-card-walk"
+                 class="apple-selector-card p-6 flex flex-col items-center text-center space-y-3">
+              <span class="text-4xl">🚶</span>
+              <div>
+                <h4 class="font-bold text-base text-zinc-900">Прогулянка</h4>
+                <p class="text-xs text-zinc-700 mt-1">Свіже повітря, парки та спокійні бесіди</p>
+              </div>
+            </div>
+
+            <!-- Cafe -->
+            <div onclick="selectWizardActivity('cafe')" 
+                 id="activity-card-cafe"
+                 class="apple-selector-card selected p-6 flex flex-col items-center text-center space-y-3">
+              <span class="text-4xl">☕</span>
+              <div>
+                <h4 class="font-bold text-base text-zinc-900">Кафе</h4>
+                <p class="text-xs text-zinc-700 mt-1">Затишна кав'ярня, улюблена кава або чай</p>
+              </div>
+            </div>
+
+            <!-- Other -->
+            <div onclick="selectWizardActivity('other')" 
+                 id="activity-card-other"
+                 class="apple-selector-card p-6 flex flex-col items-center text-center space-y-3">
+              <span class="text-4xl">✨</span>
+              <div>
+                <h4 class="font-bold text-base text-zinc-900">Щось інше</h4>
+                <p class="text-xs text-zinc-700 mt-1">Кіно, настільні ігри, пікнік чи інше</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- STEP 3: WHERE? (Cafe selection: Star Cup, Light Mood, Жовтий навєсік or Custom Detail) -->
+        <div id="wizard-step-3" class="wizard-step-panel hidden space-y-6">
+          <div class="text-center space-y-2">
+            <h3 class="text-2xl sm:text-3xl font-extrabold text-zinc-900 tracking-tight" id="step-3-title">
+              Оберіть кафе
+            </h3>
+            <p class="text-sm text-zinc-700" id="step-3-subtitle">Куди саме прямуємо?</p>
+          </div>
+
+          <!-- Cafe choices -->
+          <div id="step-3-cafe-container" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            
+            <div onclick="selectWizardCafe('Star Cup')" 
+                 id="cafe-card-star-cup"
+                 class="apple-selector-card selected p-6 flex flex-col items-center text-center space-y-3">
+              <span class="text-3xl">🌟</span>
+              <div>
+                <h4 class="font-bold text-base text-zinc-900">Star Cup</h4>
+                <p class="text-xs text-zinc-700 mt-1">Фірмова випічка та кава</p>
+              </div>
+            </div>
+
+            <div onclick="selectWizardCafe('Light Mood')" 
+                 id="cafe-card-light-mood"
+                 class="apple-selector-card p-6 flex flex-col items-center text-center space-y-3">
+              <span class="text-3xl">🌿</span>
+              <div>
+                <h4 class="font-bold text-base text-zinc-900">Light Mood</h4>
+                <p class="text-xs text-zinc-700 mt-1">Легка атмосфера та зелень</p>
+              </div>
+            </div>
+
+            <div onclick="selectWizardCafe('Жовтий навєсік')" 
+                 id="cafe-card-yellow-tent"
+                 class="apple-selector-card p-6 flex flex-col items-center text-center space-y-3">
+              <span class="text-3xl">⛺</span>
+              <div>
+                <h4 class="font-bold text-base text-zinc-900">Жовтий навєсік</h4>
+                <p class="text-xs text-zinc-700 mt-1">Культове затишне місце</p>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Custom Detail (If Other or Walk) -->
+          <div id="step-3-custom-container" class="hidden bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-3">
+            <label class="block text-sm font-bold text-zinc-800" id="step-3-custom-label">
+              Вкажіть місце або активність:
+            </label>
+            <input type="text" id="wizard-custom-detail-input" placeholder="Наприклад: Парк Шевченка, Настілки у мене, Кінотеатр..." 
+                   class="w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-4 py-3 text-sm text-zinc-900 focus:outline-none focus:border-blue-500 transition">
+          </div>
+        </div>
+
+        <!-- STEP 4: DRINK? (кава, чай, щось інше) -->
+        <div id="wizard-step-4" class="wizard-step-panel hidden space-y-6">
+          <div class="text-center space-y-2">
+            <h3 class="text-2xl sm:text-3xl font-extrabold text-zinc-900 tracking-tight">
+              Що замовлятимете у кафе?
+            </h3>
+            <p class="text-sm text-zinc-700">Оберіть напій для себе (друзі теж зможуть обрати свій при приєднанні):</p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            
+            <div onclick="selectWizardDrink('coffee')" 
+                 id="drink-card-coffee"
+                 class="apple-selector-card selected p-6 flex flex-col items-center text-center space-y-3">
+              <span class="text-4xl">☕</span>
+              <div>
+                <h4 class="font-bold text-base text-zinc-900">Кава</h4>
+                <p class="text-xs text-zinc-700 mt-1">Еспресо, капучино, фільтр чи лате</p>
+              </div>
+            </div>
+
+            <div onclick="selectWizardDrink('tea')" 
+                 id="drink-card-tea"
+                 class="apple-selector-card p-6 flex flex-col items-center text-center space-y-3">
+              <span class="text-4xl">🍵</span>
+              <div>
+                <h4 class="font-bold text-base text-zinc-900">Чай</h4>
+                <p class="text-xs text-zinc-700 mt-1">Трав'яний, чорний, зелений або ягідний</p>
+              </div>
+            </div>
+
+            <div onclick="selectWizardDrink('other')" 
+                 id="drink-card-other"
+                 class="apple-selector-card p-6 flex flex-col items-center text-center space-y-3">
+              <span class="text-4xl">🥤</span>
+              <div>
+                <h4 class="font-bold text-base text-zinc-900">Щось інше</h4>
+                <p class="text-xs text-zinc-700 mt-1">Лимонад, фреш, смузі або матча</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- STEP 5: PRIVACY, TITLE & NOTES -->
+        <div id="wizard-step-5" class="wizard-step-panel hidden space-y-6">
+          <div class="text-center space-y-2">
+            <h3 class="text-2xl sm:text-3xl font-extrabold text-zinc-900 tracking-tight">
+              Останній штрих
+            </h3>
+            <p class="text-sm text-zinc-700">Назва зустрічі, приватність та примітка для друзів</p>
+          </div>
+
+          <div class="bg-white p-6 sm:p-8 rounded-3xl border border-black/5 shadow-sm space-y-5">
+            
+            <!-- Title -->
+            <div>
+              <label class="block text-xs font-bold text-zinc-700 mb-1.5">Назва зустрічі</label>
+              <input type="text" id="wizard-title-input" value="Зустріч з друзями" 
+                     class="w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-4 py-2.5 text-sm text-zinc-900 font-semibold focus:outline-none focus:border-blue-500 transition">
+            </div>
+
+            <!-- Privacy -->
+            <div>
+              <label class="block text-xs font-bold text-zinc-700 mb-1.5">Доступність зустрічі</label>
+              <div class="grid grid-cols-2 gap-3">
+                <label class="apple-selector-card selected p-3.5 flex items-center gap-3 cursor-pointer" id="privacy-card-public">
+                  <input type="radio" name="wizard_privacy" value="0" checked class="hidden" onchange="updatePrivacyCard()">
+                  <span class="text-xl">🌐</span>
+                  <div>
+                    <span class="text-xs font-bold block text-zinc-900">Публічна</span>
+                    <span class="text-[11px] text-zinc-700">Видно усім друзям</span>
+                  </div>
+                </label>
+
+                <label class="apple-selector-card p-3.5 flex items-center gap-3 cursor-pointer" id="privacy-card-private">
+                  <input type="radio" name="wizard_privacy" value="1" class="hidden" onchange="updatePrivacyCard()">
+                  <span class="text-xl">🔒</span>
+                  <div>
+                    <span class="text-xs font-bold block text-zinc-900">Приватна</span>
+                    <span class="text-[11px] text-zinc-700">Лише за посиланням</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Note (Requirement 5) -->
+            <div>
+              <label class="block text-xs font-bold text-zinc-700 mb-1.5">Примітка або побажання від організатора</label>
+              <textarea id="wizard-note-input" rows="2" placeholder="Наприклад: Я прийду раніше, забронюю столик. Хто хоче — приєднуйтесь!" 
+                        class="w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-4 py-2.5 text-sm text-zinc-900 focus:outline-none focus:border-blue-500 transition resize-none"></textarea>
+            </div>
+
+            <!-- Summary Review Card -->
+            <div class="p-4 rounded-2xl bg-zinc-50 border border-zinc-200/60 text-xs text-zinc-700 space-y-1.5">
+              <span class="font-bold text-zinc-900 block mb-1">Підсумок зустрічі:</span>
+              <p>📅 <span id="summary-date-time" class="font-semibold text-zinc-800"></span></p>
+              <p>📍 <span id="summary-location" class="font-semibold text-zinc-800"></span></p>
+              <p>🥤 <span id="summary-drink" class="font-semibold text-zinc-800"></span></p>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Wizard Navigation Buttons -->
+        <div class="flex items-center justify-between pt-6 border-t border-zinc-200/80">
+          <button type="button" id="wizard-prev-btn" onclick="wizardPrevStep()" 
+                  class="apple-btn-secondary px-6 py-2.5 text-sm font-semibold">
+            ← Назад
+          </button>
+
+          <button type="button" id="wizard-next-btn" onclick="wizardNextStep()" 
+                  class="apple-btn-primary px-8 py-3 text-sm font-semibold flex items-center gap-2">
+            <span>Далі</span>
+            <span>→</span>
+          </button>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ==================== VIEW 3: PUBLIC CALENDAR ==================== -->
+    <section id="view-calendar" class="hidden space-y-8 animate-slide-in">
+      
+      <!-- Top Calendar Banner -->
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+        <div>
+          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-semibold mb-2">
+            <span>🗓️</span> Календар двох найближчих місяців
+          </div>
+          <h2 class="text-2xl font-extrabold text-zinc-900 tracking-tight">
+            Публічний календар зустрічей
+          </h2>
+          <p class="text-sm text-zinc-700 mt-1">Оберіть будь-яку зустріч нижче або натисніть день у календарі</p>
+        </div>
+
+        <button onclick="startWizardFlow()" class="apple-btn-primary px-5 py-2.5 text-xs font-semibold flex items-center gap-1.5">
+          <span>+</span>
+          <span>Запланувати нову</span>
+        </button>
+      </div>
+
+      <!-- Public Calendar Mount Point -->
+      <div id="public-calendar-mount"></div>
+
+      <!-- Scheduled Meetups List -->
+      <div class="bg-white p-6 sm:p-8 rounded-3xl border border-black/5 shadow-sm space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-100">
+          <h3 class="text-base font-bold text-zinc-900 flex items-center gap-2">
+            <span>🎉</span> Список запланованих подій
+          </h3>
+          <button onclick="loadMeetups()" class="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1">
+            Оновити
+          </button>
+        </div>
+
+        <div id="public-meetups-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Rendered in app.js -->
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- MEETUP DETAILS MODAL (RSVP, Notes, Google/Apple/Notion Export) -->
+  <div id="meetup-details-modal" class="modal-backdrop">
+    <div class="apple-modal p-6 sm:p-8 w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-end">
+        <button onclick="closeModal('meetup-details-modal')" class="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-600 flex items-center justify-center transition">✕</button>
+      </div>
+      <div id="meetup-details-content">
+        <!-- Rendered in app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- AVATAR & USER PROFILE MODAL -->
+  <div id="avatar-modal" class="modal-backdrop">
+    <div class="apple-modal p-6 sm:p-7 w-full max-w-md mx-4">
+      <div class="flex items-center justify-between pb-3 border-b border-zinc-100">
+        <h3 class="text-base font-bold text-zinc-900 flex items-center gap-2">
+          <span>🎭</span> Профіль & Аватарка
+        </h3>
+        <button onclick="closeModal('avatar-modal')" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-600 flex items-center justify-center text-sm">✕</button>
+      </div>
+
+      <div class="mt-4 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-zinc-700 mb-1.5">Ваше ім'я</label>
+          <input type="text" id="profile-name-input" placeholder="Як вас звати?" 
+                 class="w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-4 py-2.5 text-sm text-zinc-900 focus:outline-none focus:border-blue-500 transition">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-zinc-700 mb-2">Оберіть аватар:</label>
+          <div id="avatar-grid" class="grid grid-cols-6 gap-2 max-h-44 overflow-y-auto p-1">
+            <!-- Emojis populated in app.js -->
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-zinc-100">
+          <label class="block text-xs font-bold text-zinc-700 mb-1.5">Або завантажте фото:</label>
+          <input type="file" id="custom-avatar-file" accept="image/*" class="text-xs text-zinc-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-800 hover:file:bg-zinc-200">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTIFICATIONS MODAL -->
+  <div id="notification-settings-modal" class="modal-backdrop">
+    <div class="apple-modal p-6 sm:p-7 w-full max-w-md mx-4">
+      <div class="flex items-center justify-between pb-3 border-b border-zinc-100">
+        <h3 class="text-base font-bold text-zinc-900 flex items-center gap-2">
+          <span>🔔</span> Налаштування сповіщень
+        </h3>
+        <button onclick="closeModal('notification-settings-modal')" class="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-600 flex items-center justify-center text-sm">✕</button>
+      </div>
+
+      <div class="mt-4 space-y-4 text-xs">
+        <label class="flex items-center justify-between p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200 cursor-pointer">
+          <div>
+            <span class="font-bold text-zinc-900 block">Пуш-сповіщення у браузері</span>
+            <span class="text-zinc-700 text-[11px]">Нагадувати про початок зустрічей</span>
+          </div>
+          <input type="checkbox" id="push-enabled-toggle" class="w-5 h-5 accent-blue-600 rounded">
+        </label>
+
+        <div class="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-2.5">
+          <span class="font-bold text-zinc-800 block mb-1">Інтервали нагадування:</span>
+          <label class="flex items-center gap-2.5 cursor-pointer text-zinc-700">
+            <input type="checkbox" id="remind-15m-chk" class="w-4 h-4 accent-blue-600 rounded">
+            <span>⏰ За 15 хвилин до зустрічі</span>
+          </label>
+          <label class="flex items-center gap-2.5 cursor-pointer text-zinc-700">
+            <input type="checkbox" id="remind-1h-chk" class="w-4 h-4 accent-blue-600 rounded">
+            <span>⏳ За 1 годину до зустрічі</span>
+          </label>
+          <label class="flex items-center gap-2.5 cursor-pointer text-zinc-700">
+            <input type="checkbox" id="remind-1d-chk" class="w-4 h-4 accent-blue-600 rounded">
+            <span>📅 За 1 день (24 години)</span>
+          </label>
+          <label class="flex items-center gap-2.5 cursor-pointer text-zinc-700 pt-2 border-t border-zinc-200">
+            <input type="checkbox" id="remind-sound-chk" class="w-4 h-4 accent-blue-600 rounded">
+            <span>🔊 Звуковий сигнал</span>
+          </label>
+        </div>
+
+        <div class="flex items-center justify-between pt-1">
+          <button type="button" onclick="testPushAlert()" class="px-3.5 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-semibold transition">
+            🔔 Перевірити пуш зараз
+          </button>
+          <button type="button" onclick="savePushSettingsFromModal()" class="apple-btn-primary px-5 py-2 font-semibold">
+            Зберегти
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/animations.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
